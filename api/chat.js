@@ -1,14 +1,10 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { history, modelSelection, systemPrompt } = req.body;
-
+export async function onRequestPost(context) {
   try {
+    const { history, modelSelection, systemPrompt } = await context.request.json();
+
     if (modelSelection === 'gemini') {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'Gemini API key missing on server.' });
+      const apiKey = context.env.GEMINI_API_KEY;
+      if (!apiKey) return Response.json({ error: 'Gemini API key missing on server.' }, { status: 500 });
 
       const contents = history.map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
@@ -29,11 +25,11 @@ export default async function handler(req, res) {
       if (data.error) throw new Error(data.error.message);
 
       const reply = data.candidates[0].content.parts[0].text;
-      return res.status(200).json({ reply });
+      return Response.json({ reply });
 
     } else if (modelSelection === 'openrouter') {
-      const apiKey = process.env.OPENROUTER_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'OpenRouter API key missing on server.' });
+      const apiKey = context.env.OPENROUTER_API_KEY;
+      if (!apiKey) return Response.json({ error: 'OpenRouter API key missing on server.' }, { status: 500 });
 
       const messages = [
         { role: 'system', content: systemPrompt || 'You are an expert study tutor.' },
@@ -45,7 +41,7 @@ export default async function handler(req, res) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://vercel.com',
+          'HTTP-Referer': 'https://pages.cloudflare.com',
           'X-Title': 'AI Study Tutor'
         },
         body: JSON.stringify({
@@ -58,12 +54,12 @@ export default async function handler(req, res) {
       if (data.error) throw new Error(data.error.message?.message || data.error.message || JSON.stringify(data.error));
 
       const reply = data.choices[0].message.content;
-      return res.status(200).json({ reply });
+      return Response.json({ reply });
 
     } else {
-      return res.status(400).json({ error: 'Invalid model selection.' });
+      return Response.json({ error: 'Invalid model selection.' }, { status: 400 });
     }
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Failed to process AI request.' });
+    return Response.json({ error: err.message || 'Failed to process AI request.' }, { status: 500 });
   }
 }
